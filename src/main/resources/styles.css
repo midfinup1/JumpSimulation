@@ -1,0 +1,93 @@
+/* Основной фон для приложения */
+.root {
+    -fx-font-family: "Arial";
+    -fx-background-color: linear-gradient(to bottom, #e8f4fd, #ffffff); /* Градиентный фон */
+    -fx-padding: 10;
+}
+
+/* Графики */
+.chart-container {
+    -fx-background-color: #ffffff;
+    -fx-border-radius: 12px;
+    -fx-background-radius: 12px;
+    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 4, 0, 0, 4); !* Легкая тень *!*/
+    -fx-padding: 10;
+    -fx-margin: 10;
+}
+
+.line-chart {
+    -fx-border-color: lightgray;
+    -fx-padding: 10;
+    -fx-border-width: 2;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 2, 0, 0, 2); !* Тень *!*/
+}
+
+/* Заголовки графиков */
+.chart-title {
+    -fx-text-fill: #333333;
+    -fx-font-weight: bold;
+    -fx-font-size: 18px;
+    -fx-padding: 10 0 10 0;
+}
+
+/* Контейнер для формы */
+.form-container {
+    -fx-background-color: #ffffff;
+    -fx-border-radius: 12px;
+    -fx-background-radius: 12px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 4, 0, 0, 4); /* Тень */
+    -fx-padding: 20;
+    -fx-margin: 20;
+}
+
+/* Поля ввода */
+.text-field {
+    -fx-pref-width: 150px;
+    -fx-padding: 8;
+    -fx-border-color: #ddd;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.1), 2, 0, 0, 2); /* Внутренняя тень */
+    -fx-font-size: 14px;
+}
+
+/* Кнопки */
+.button {
+    -fx-padding: 8px 12px;
+    -fx-background-color: #4d76d7;
+    -fx-text-fill: #ffffff;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 2, 0, 0, 2);
+}
+
+.button:hover {
+    -fx-background-color: #1d49aa;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 4, 0, 0, 4); /* Более заметная тень при наведении */
+}
+
+/* Ползунок */
+.slider {
+    -fx-pref-width: 150px;
+    -fx-background-color: #d6d6d6;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.slider:hover {
+    -fx-background-color: #b5b5b5;
+}
+
+.slider .thumb {
+    -fx-background-color: #4d76d7;
+    -fx-background-radius: 50%;
+    -fx-pref-width: 16px;
+    -fx-pref-height: 16px;
+}
+
+.slider .thumb:hover {
+    -fx-background-color: #1d49aa;
+}
