@@ -123,7 +123,7 @@ public class ChartsPanel {
             series = new XYChart.Series<>();
             chart.getData().add(series);
         } else {
-            series = chart.getData().get(0);
+            series = chart.getData().getFirst();
         }
         series.getData().add(new XYChart.Data<>(x, y));
     }

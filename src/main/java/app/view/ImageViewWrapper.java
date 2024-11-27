@@ -5,6 +5,8 @@ package app.view;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
+import java.util.Objects;
+
 /**
  * Класс ImageViewWrapper упрощает загрузку и настройку ImageView с заданным ресурсом и размерами.
  */
@@ -20,7 +22,7 @@ public class ImageViewWrapper {
      * @param height       высота ImageView
      */
     public ImageViewWrapper(String resourcePath, double width, double height) {
-        Image image = new Image(getClass().getResourceAsStream(resourcePath));
+        Image image = new Image(Objects.requireNonNull(getClass().getResourceAsStream(resourcePath)));
         if (image.isError()) {
             System.err.println("Не удалось загрузить изображение по пути: " + resourcePath);
             // Вы можете выбросить исключение или обработать ошибку по-другому

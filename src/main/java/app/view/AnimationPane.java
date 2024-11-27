@@ -19,10 +19,8 @@ import javafx.scene.text.Text;
 public class AnimationPane {
 
     private StackPane pane;
-    private Group animationGroup;
     private Box fallingObject;
     private AnnotationBox annotationBox;
-    private ImageViewWrapper backgroundImageView;
 
     /**
      * Конструктор класса AnimationPane.
@@ -36,10 +34,10 @@ public class AnimationPane {
      * Создаёт анимационную панель, включая падающий объект, фон и аннотации.
      */
     private void createAnimationPane() {
-        animationGroup = new Group();
+        Group animationGroup = new Group();
 
         // Загрузка и добавление фонового изображения
-        backgroundImageView = new ImageViewWrapper("/assets/gradient.png", 300, 800);
+        ImageViewWrapper backgroundImageView = new ImageViewWrapper("/assets/gradient.png", 300, 800);
         animationGroup.getChildren().add(backgroundImageView.getImageView());
 
         // Создание падающего объекта
@@ -98,7 +96,7 @@ public class AnimationPane {
     /**
      * Внутренний класс для управления аннотациями.
      */
-    private class AnnotationBox {
+    private static class AnnotationBox {
         private VBox pane;
         private Text timeText;
         private Text altitudeText;

@@ -7,6 +7,8 @@ import javafx.stage.Stage;
 import app.controller.SimulationController;
 import app.view.SimulationView;
 
+import java.util.Objects;
+
 public class MainApp extends Application {
 
     @Override
@@ -22,7 +24,7 @@ public class MainApp extends Application {
         Scene scene = new Scene(root, 1200, 800);
 
         // Подключение CSS-стиля
-        String cssPath = getClass().getResource("/styles.css").toExternalForm();
+        String cssPath = Objects.requireNonNull(getClass().getResource("/styles.css")).toExternalForm();
         scene.getStylesheets().add(cssPath);
 
         // Установка сцены и отображение окна

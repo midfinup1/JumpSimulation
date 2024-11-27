@@ -58,19 +58,9 @@ public class Simulation {
             // Расчет силы сопротивления
             double dragForce = 0.5 * dragCoefficient * density * effectiveArea * velocity * Math.abs(velocity);
 
-//            // Ограничение на максимальную силу сопротивления
-//            double maxDragForce = 50_000; // Примерное ограничение
-//            dragForce = Math.min(dragForce, maxDragForce);
-
             // Уравнения движения
             yDot[0] = velocity;
             yDot[1] = -gravity - (dragForce / mass);
-
-//            // Ограничение на ускорение
-//            double maxAcceleration = 50.0; // Примерное ограничение
-//            if (Math.abs(yDot[1]) > maxAcceleration) {
-//                yDot[1] = Math.signum(yDot[1]) * maxAcceleration;
-//            }
 
             System.out.printf("gravity=%.2f, density=%.2f, soundSpeed=%.2f, machNumber=%.2f, dragForce=%.2f%n", gravity, density, soundSpeed, machNumber, dragForce);
 

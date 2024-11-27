@@ -43,7 +43,7 @@ public class Atmosphere {
         atmosphereLayers.add(new Layer(71000, 84852, 0, -0.002));
 
         // Начальные условия на уровне моря
-        Layer firstLayer = atmosphereLayers.get(0);
+        Layer firstLayer = atmosphereLayers.getFirst();
         firstLayer.pBase = 101325; // Па
         firstLayer.rhoBase = firstLayer.pBase / (GAS_CONSTANT * firstLayer.tBase);
 
@@ -88,7 +88,7 @@ public class Atmosphere {
 
         if (layer == null) {
             // Высота выше верхнего слоя
-            layer = atmosphereLayers.get(atmosphereLayers.size() - 1);
+            layer = atmosphereLayers.getLast();
         }
 
         double h_b = layer.hBase;
