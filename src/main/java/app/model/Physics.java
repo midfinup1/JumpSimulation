@@ -14,13 +14,16 @@ public class Physics {
     public static double calculateDragCoefficient(double machNumber) {
         double dragCoefficient;
         if (machNumber < 0.8) {
-            dragCoefficient = BASE_DRAG_COEFFICIENT;
+            dragCoefficient = BASE_DRAG_COEFFICIENT; // 0.5
         } else if (machNumber < 1.0) {
-            dragCoefficient = BASE_DRAG_COEFFICIENT + 0.6 * (machNumber - 0.8) / 0.2;
+            // Плавное увеличение до 1.0
+            dragCoefficient = BASE_DRAG_COEFFICIENT + 0.5 * (machNumber - 0.8) / 0.2; // до 1.0
         } else if (machNumber < 1.2) {
-            dragCoefficient = BASE_DRAG_COEFFICIENT + 0.6 * (1.2 - machNumber) / 0.2;
+            // Поддержание высокого C_d
+            dragCoefficient = 1.0; // фиксированное значение
         } else {
-            dragCoefficient = BASE_DRAG_COEFFICIENT;
+            // Возможно, небольшое снижение или поддержание
+            dragCoefficient = 0.8; // немного ниже, но все еще выше базового
         }
         return dragCoefficient;
     }

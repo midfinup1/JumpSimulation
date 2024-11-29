@@ -1,5 +1,3 @@
-// src/main/java/app/controller/SimulationController.java
-
 package app.controller;
 
 import app.model.Simulation;
@@ -8,48 +6,57 @@ import app.view.ChartsPanel;
 import app.view.ControlsPanel;
 import app.view.SimulationView;
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.Tooltip;
+import javafx.scene.shape.Circle;
 
 /**
- * Класс SimulationController отвечает за обработку событий пользовательского интерфейса
+ * Класс {@code SimulationController} отвечает за обработку событий пользовательского интерфейса
  * и управление логикой симуляции падения объекта.
- * Он взаимодействует с представлением (SimulationView) и моделью (Simulation).
  */
 public class SimulationController {
 
-    private final SimulationView view;
+    private final ControlsPanel controls;
+    private final AnimationPane animationPane;
+    private final ChartsPanel chartsPanel;
+
     private Simulation.SimulationResult simulationResult;
     private int currentIndex = 0;
+
     private AnimationTimer animationTimer;
     private boolean isRunning = false;
-    private double timeScale = 0.1; // Скорость времени, 1.0 = реальное время
-    private double accumulatedTime = 0.0; // Накопленное время для симуляции
+    private boolean isSliderBeingDragged = false;
 
-    /**
-     * Конструктор класса SimulationController.
-     *
-     * @param view экземпляр SimulationView, содержащий все подкомпоненты пользовательского интерфейса
-     */
+    // Переменные для управления скоростью симуляции
+    private double simulationSpeed = 0.5; // Начальная скорость симуляции
+    private static final double MIN_SIMULATION_SPEED = 0.01; // Минимальная скорость
+    private static final double MAX_SIMULATION_SPEED = 2.0;  // Максимальная скорость
+
+    private double stepsAccumulator = 0.0; // Для накопления дробных шагов
+
     public SimulationController(SimulationView view) {
-        this.view = view;
+        this.controls = view.getControlsPanel();
+        this.animationPane = view.getAnimationPane();
+        this.chartsPanel = view.getChartsPanel();
         initialize();
     }
 
-    /**
-     * Инициализирует контроллер, устанавливая обработчики событий и настраивая анимацию.
-     */
     private void initialize() {
-        // Получение подкомпонентов представления
-        ControlsPanel controls = view.getControlsPanel();
-        AnimationPane animationPane = view.getAnimationPane();
-        ChartsPanel chartsPanel = view.getChartsPanel();
-
         // Настройка обработчиков событий для кнопок
         controls.getStartButton().setOnAction(e -> handleStartButton());
         controls.getResetButton().setOnAction(e -> handleResetButton());
-        controls.getRewindButton().setOnAction(e -> handleRewindButton());
-        controls.getForwardButton().setOnAction(e -> handleForwardButton());
+        controls.getRewindButton().setOnAction(e -> adjustSimulationSpeed(-1));
+        controls.getForwardButton().setOnAction(e -> adjustSimulationSpeed(1));
+
+        // Настройка слушателя для ползунка времени
+        controls.getTimeSlider().valueProperty().addListener((obs, oldVal, newVal) -> handleSliderChange(newVal.doubleValue()));
+
+        // Обработка событий начала и конца перетаскивания ползунка
+        controls.getTimeSlider().setOnMousePressed(e -> handleSliderPress());
+        controls.getTimeSlider().setOnMouseReleased(e -> handleSliderRelease());
 
         // Настройка анимации через AnimationTimer
         animationTimer = new AnimationTimer() {
@@ -61,29 +68,42 @@ public class SimulationController {
                     lastUpdateTime = now;
                     return;
                 }
-
-                // Рассчитываем прошедшее время в секундах с учетом масштабирования времени
-                double deltaTime = (now - lastUpdateTime) / 1_000_000_000.0 * timeScale;
-                accumulatedTime += deltaTime;
-
-                // Обновляем симуляцию только тогда, когда накопилось достаточно времени для следующего шага
-                if (accumulatedTime >= 1.0 / 60.0) { // 60 FPS
-                    updateSimulation(accumulatedTime);
-                    accumulatedTime = 0.0; // Сбрасываем накопленное время
-                }
-
+                double deltaTime = (now - lastUpdateTime) / 1_000_000_00.0; // Конвертируем наносекунды в секунды
+                updateSimulation(deltaTime);
                 lastUpdateTime = now;
             }
         };
     }
 
-    /**
-     * Обработчик события нажатия кнопки "Старт/Пауза".
-     * Запускает или приостанавливает анимацию симуляции.
-     */
-    private void handleStartButton() {
-        ControlsPanel controls = view.getControlsPanel();
+    private void handleSliderChange(double sliderValue) {
+        if (isSliderBeingDragged && simulationResult != null) {
+            int newIndex = (int) (sliderValue * (simulationResult.time.size() - 1));
+            if (newIndex != currentIndex) {
+                currentIndex = newIndex;
+                stepsAccumulator = 0.0; // Сбрасываем накопитель шагов
+                updateSimulationDisplay();
+            }
+        }
+    }
 
+    private void handleSliderPress() {
+        isSliderBeingDragged = true;
+        if (isRunning) {
+            animationTimer.stop();
+        }
+    }
+
+    private void handleSliderRelease() {
+        isSliderBeingDragged = false;
+        if (simulationResult != null) {
+            updateSimulationDisplay();
+        }
+        if (isRunning) {
+            animationTimer.start();
+        }
+    }
+
+    private void handleStartButton() {
         if (isRunning) {
             // Пауза симуляции
             animationTimer.stop();
@@ -94,27 +114,24 @@ public class SimulationController {
             try {
                 // Чтение и парсинг входных данных
                 double mass = Double.parseDouble(controls.getMassField().getText());
-                double parachuteTime = Double.parseDouble(controls.getParachuteTimeField().getText());
                 double area = Double.parseDouble(controls.getAreaField().getText());
                 double areaParachute = Double.parseDouble(controls.getAreaParachuteField().getText());
+                double parachuteAltitude = Double.parseDouble(controls.getParachuteAltitudeField().getText());
+                double transitionTime = Double.parseDouble(controls.getTransitionTimeField().getText());
 
                 // Валидация параметров
-                if (mass <= 0 || parachuteTime < 0 || area <= 0 || areaParachute <= 0) {
+                if (mass <= 0 || parachuteAltitude < 0 || area <= 0 || areaParachute <= 0 || transitionTime <= 0) {
                     throw new IllegalArgumentException("Все параметры должны быть положительными числами.");
                 }
 
                 // Запуск симуляции с помощью модели
-                simulationResult = Simulation.simulateJump(mass, 39000, area, areaParachute, parachuteTime);
-                currentIndex = 0;
+                simulationResult = Simulation.simulateJump(mass, 39000, area, areaParachute, parachuteAltitude, transitionTime);
+                if (simulationResult.time.isEmpty()) {
+                    showAlert("Симуляция не выполнена", "Симуляция не сгенерировала данных. Проверьте входные параметры и попробуйте снова.");
+                    return;
+                }
 
-                // Очистка предыдущих данных
-                view.getChartsPanel().getAltitudeChart().getData().clear();
-                view.getChartsPanel().getVelocityChart().getData().clear();
-                view.getChartsPanel().getAccelerationChart().getData().clear();
-                view.getChartsPanel().getMachNumberChart().getData().clear();
-                view.getAnimationPane().resetSimulation();
-
-                // Предварительная отрисовка данных на графиках (опционально)
+                // Отрисовка данных на графиках
                 plotInitialData();
 
                 // Запуск анимации
@@ -129,81 +146,89 @@ public class SimulationController {
         }
     }
 
-    /**
-     * Обработчик события нажатия кнопки "Сброс".
-     * Останавливает симуляцию и сбрасывает все данные до начальных значений.
-     */
-    private void handleResetButton() {
+    private void resetSimulationState() {
         animationTimer.stop();
         isRunning = false;
         currentIndex = 0;
-        view.getChartsPanel().getAltitudeChart().getData().clear();
-        view.getChartsPanel().getVelocityChart().getData().clear();
-        view.getChartsPanel().getAccelerationChart().getData().clear();
-        view.getChartsPanel().getMachNumberChart().getData().clear();
-        view.getAnimationPane().resetSimulation();
-        view.getControlsPanel().getStartButton().setText("Старт");
+        stepsAccumulator = 0.0;
+        simulationSpeed = 0.5;
+
+        clearCharts();
+        animationPane.resetSimulation();
+        controls.getStartButton().setText("Старт");
+        controls.getTimeSlider().setValue(0);
+        controls.getCurrentTimeLabel().setText("Текущее время: 0.0 с");
     }
 
-    /**
-     * Обработчик события нажатия кнопки "⏪" для замедления симуляции.
-     * Уменьшает скорость времени, но не ниже 0.1x.
-     */
-    private void handleRewindButton() {
-        timeScale = Math.max(0.1, timeScale / 2); // Замедление
-        System.out.println("Замедление, новая скорость времени: " + timeScale);
+    private void handleResetButton() {
+        resetSimulationState();
     }
 
-    /**
-     * Обработчик события нажатия кнопки "⏩" для ускорения симуляции.
-     * Увеличивает скорость времени, но не выше 4x.
-     */
-    private void handleForwardButton() {
-        timeScale = Math.min(4.0, timeScale * 2); // Ускорение
-        System.out.println("Ускорение, новая скорость времени: " + timeScale);
-    }
-
-    /**
-     * Обновляет симуляцию: обновляет позицию падающего объекта и значения аннотаций.
-     *
-     * @param deltaTime прошедшее время с последнего обновления
-     */
-    private void updateSimulation(double deltaTime) {
-        if (simulationResult != null && currentIndex < simulationResult.time.size()) {
-            double time = simulationResult.time.get(currentIndex);
-            double altitude = simulationResult.altitude.get(currentIndex);
-            double velocity = simulationResult.velocity.get(currentIndex);
-            double acceleration = simulationResult.acceleration.get(currentIndex);
-            double machNumber = simulationResult.machNumber.get(currentIndex);
-
-            // Обновление графиков
-            view.getChartsPanel().addDataToChart(view.getChartsPanel().getAltitudeChart(), time, altitude);
-            view.getChartsPanel().addDataToChart(view.getChartsPanel().getVelocityChart(), time, velocity);
-            view.getChartsPanel().addDataToChart(view.getChartsPanel().getAccelerationChart(), time, acceleration);
-            view.getChartsPanel().addDataToChart(view.getChartsPanel().getMachNumberChart(), time, machNumber);
-
-            // Обновление позиции падающего объекта и аннотаций
-            view.getAnimationPane().updateSimulationMarker(time, altitude, velocity, acceleration, machNumber);
-
-            currentIndex++;
-
-            // Ускорение симуляции при больших deltaTime (опционально)
-            if (deltaTime > 1.0) {
-                currentIndex += (int) (deltaTime * 10);
-            }
+    private void adjustSimulationSpeed(int direction) {
+        if (direction < 0) {
+            simulationSpeed = Math.max(simulationSpeed / 2.0, MIN_SIMULATION_SPEED);
         } else {
-            // Завершение симуляции, если все данные обработаны
-            animationTimer.stop();
-            isRunning = false;
-            view.getControlsPanel().getStartButton().setText("Старт");
+            simulationSpeed = Math.min(simulationSpeed * 2.0, MAX_SIMULATION_SPEED);
         }
     }
 
-    /**
-     * Предварительная отрисовка всех данных на графиках (может быть отключена для больших объемов данных).
-     */
+    private void updateSimulation(double deltaTime) {
+        if (simulationResult != null) {
+            if (simulationResult.timeStep <= 0) {
+                // Защита от деления на ноль или отрицательного шага
+                simulationResult.timeStep = 0.1;
+            }
+
+            // Рассчитываем количество шагов, которые нужно пройти
+            double stepsToAdvance = deltaTime * simulationSpeed / simulationResult.timeStep;
+
+            // Накапливаем дробную часть шагов
+            stepsAccumulator += stepsToAdvance;
+            int steps = (int) stepsAccumulator;
+            stepsAccumulator -= steps;
+
+            // Увеличиваем currentIndex на количество целых шагов
+            currentIndex += steps;
+
+            if (currentIndex >= simulationResult.time.size()) {
+                currentIndex = simulationResult.time.size() - 1;
+                animationTimer.stop();
+                isRunning = false;
+                controls.getStartButton().setText("Старт");
+                return;
+            }
+
+            updateSimulationDisplay();
+        }
+    }
+
+    private void updateSimulationDisplay() {
+        double time = simulationResult.time.get(currentIndex);
+        double altitude = simulationResult.altitude.get(currentIndex);
+        double velocity = simulationResult.velocity.get(currentIndex);
+        double acceleration = simulationResult.acceleration.get(currentIndex);
+        double machNumber = simulationResult.machNumber.get(currentIndex);
+
+        animationPane.updateSimulationMarker(time, altitude, velocity, acceleration, machNumber);
+
+        double sliderValue = (double) currentIndex / (simulationResult.time.size() - 1);
+        Platform.runLater(() -> {
+            if (!isSliderBeingDragged) {
+                controls.getTimeSlider().setValue(sliderValue);
+            }
+            controls.getCurrentTimeLabel().setText(String.format("Текущее время: %.2f с", time));
+        });
+
+        // Обновляем текущие точки на графиках
+        updateCurrentPointOnCharts(time, altitude, velocity, acceleration, machNumber);
+    }
+
     private void plotInitialData() {
         if (simulationResult != null) {
+            // Очищаем графики перед отрисовкой
+            clearCharts();
+
+            // Добавляем полные данные в серии "Full" (серые)
             for (int i = 0; i < simulationResult.time.size(); i++) {
                 double time = simulationResult.time.get(i);
                 double altitude = simulationResult.altitude.get(i);
@@ -211,25 +236,75 @@ public class SimulationController {
                 double acceleration = simulationResult.acceleration.get(i);
                 double machNumber = simulationResult.machNumber.get(i);
 
-                view.getChartsPanel().addDataToChart(view.getChartsPanel().getAltitudeChart(), time, altitude);
-                view.getChartsPanel().addDataToChart(view.getChartsPanel().getVelocityChart(), time, velocity);
-                view.getChartsPanel().addDataToChart(view.getChartsPanel().getAccelerationChart(), time, acceleration);
-                view.getChartsPanel().addDataToChart(view.getChartsPanel().getMachNumberChart(), time, machNumber);
+                chartsPanel.getAltitudeSeriesFull().getData().add(new XYChart.Data<>(time, altitude));
+                chartsPanel.getVelocitySeriesFull().getData().add(new XYChart.Data<>(time, -velocity));
+                chartsPanel.getAccelerationSeriesFull().getData().add(new XYChart.Data<>(time, acceleration));
+                chartsPanel.getMachNumberSeriesFull().getData().add(new XYChart.Data<>(time, machNumber));
             }
+        } else {
+            showAlert("Симуляция не выполнена", "Проверьте входные параметры и попробуйте снова.");
         }
     }
 
-    /**
-     * Метод для отображения диалогового окна с сообщением об ошибке.
-     *
-     * @param title   заголовок окна
-     * @param message сообщение
-     */
+    private void clearCharts() {
+        // Очищаем данные в сериях
+        chartsPanel.getAltitudeSeriesFull().getData().clear();
+        chartsPanel.getAltitudeCurrentPoint().getData().clear();
+
+        chartsPanel.getVelocitySeriesFull().getData().clear();
+        chartsPanel.getVelocityCurrentPoint().getData().clear();
+
+        chartsPanel.getAccelerationSeriesFull().getData().clear();
+        chartsPanel.getAccelerationCurrentPoint().getData().clear();
+
+        chartsPanel.getMachNumberSeriesFull().getData().clear();
+        chartsPanel.getMachNumberCurrentPoint().getData().clear();
+    }
+
+    private void updateCurrentPointOnCharts(double time, double altitude, double velocity, double acceleration, double machNumber) {
+        // Очищаем предыдущие точки
+        chartsPanel.getAltitudeCurrentPoint().getData().clear();
+        chartsPanel.getVelocityCurrentPoint().getData().clear();
+        chartsPanel.getAccelerationCurrentPoint().getData().clear();
+        chartsPanel.getMachNumberCurrentPoint().getData().clear();
+
+        // Создаём новые точки
+        XYChart.Data<Number, Number> altitudeData = new XYChart.Data<>(time, altitude);
+        XYChart.Data<Number, Number> velocityData = new XYChart.Data<>(time, -velocity);
+        XYChart.Data<Number, Number> accelerationData = new XYChart.Data<>(time, acceleration);
+        XYChart.Data<Number, Number> machNumberData = new XYChart.Data<>(time, machNumber);
+
+        // Создаём символы для точек
+        altitudeData.setNode(new Circle(3, javafx.scene.paint.Color.BLUE));
+        velocityData.setNode(new Circle(3, javafx.scene.paint.Color.BLUE));
+        accelerationData.setNode(new Circle(3, javafx.scene.paint.Color.BLUE));
+        machNumberData.setNode(new Circle(3, javafx.scene.paint.Color.BLUE));
+
+        // Добавляем Tooltip к точкам
+        addTooltipToData(altitudeData, String.format("Время: %.2f с\nВысота: %.2f м", time, altitude));
+        addTooltipToData(velocityData, String.format("Время: %.2f с\nСкорость: %.2f м/с", time, -velocity));
+        addTooltipToData(accelerationData, String.format("Время: %.2f с\nУскорение: %.2f м/с²", time, acceleration));
+        addTooltipToData(machNumberData, String.format("Время: %.2f с\nЧисло Маха: %.2f", time, machNumber));
+
+        // Добавляем точки на графики
+        chartsPanel.getAltitudeCurrentPoint().getData().add(altitudeData);
+        chartsPanel.getVelocityCurrentPoint().getData().add(velocityData);
+        chartsPanel.getAccelerationCurrentPoint().getData().add(accelerationData);
+        chartsPanel.getMachNumberCurrentPoint().getData().add(machNumberData);
+    }
+
+    private void addTooltipToData(XYChart.Data<Number, Number> data, String tooltipText) {
+        Tooltip tooltip = new Tooltip(tooltipText);
+        Tooltip.install(data.getNode(), tooltip);
+    }
+
     private void showAlert(String title, String message) {
-        Alert alert = new Alert(AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+        Platform.runLater(() -> {
+            Alert alert = new Alert(AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+        });
     }
 }

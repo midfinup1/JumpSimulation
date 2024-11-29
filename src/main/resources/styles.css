@@ -10,7 +10,7 @@
     -fx-background-color: #ffffff;
     -fx-border-radius: 12px;
     -fx-background-radius: 12px;
-    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 4, 0, 0, 4); !* Легкая тень *!*/
+    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 4, 0, 0, 4); /* Легкая тень */
     -fx-padding: 10;
     -fx-margin: 10;
 }
@@ -21,7 +21,7 @@
     -fx-border-width: 2;
     -fx-border-radius: 10;
     -fx-background-radius: 10;
-    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 2, 0, 0, 2); !* Тень *!*/
+    /*-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 2, 0, 0, 2); /* Тень */
 }
 
 /* Заголовки графиков */
@@ -72,13 +72,13 @@
 /* Ползунок */
 .slider {
     -fx-pref-width: 150px;
-    -fx-background-color: #d6d6d6;
+    -fx-background-color: white;
     -fx-border-radius: 4px;
     -fx-background-radius: 4px;
 }
 
 .slider:hover {
-    -fx-background-color: #b5b5b5;
+    -fx-background-color: #d6d6d6;
 }
 
 .slider .thumb {
@@ -90,4 +90,10 @@
 
 .slider .thumb:hover {
     -fx-background-color: #1d49aa;
+}
+
+/* Стиль линий графика */
+.chart-series-line {
+    -fx-stroke-width: 2px;
+    -fx-stroke: #4d76d7
 }
