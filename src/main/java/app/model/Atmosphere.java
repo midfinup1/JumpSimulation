@@ -3,6 +3,10 @@ package app.model;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Класс {@code Atmosphere} предоставляет методы для вычисления свойств атмосферы
+ * в зависимости от высоты над уровнем моря.
+ */
 public class Atmosphere {
 
     // Константы
@@ -10,12 +14,14 @@ public class Atmosphere {
     public static final double ADIABATIC_INDEX = 1.4;
     public static final double STANDARD_GRAVITY = 9.80665; // м/с²
 
+    /**
+     * Внутренний класс {@code Layer} представляет слой атмосферы.
+     */
     public static class Layer {
         double hBase;
         double hTop;
         double tBase;
         double pBase;
-        double rhoBase;
         double lapseRate;
 
         public Layer(double hBase, double hTop, double tBase, double lapseRate) {
@@ -23,29 +29,32 @@ public class Atmosphere {
             this.hTop = hTop;
             this.tBase = tBase;
             this.lapseRate = lapseRate;
+            this.pBase = 0;
         }
     }
 
-    public static List<Layer> atmosphereLayers = new ArrayList<>();
+    private static final List<Layer> atmosphereLayers = new ArrayList<>();
 
     static {
         initializeLayers();
     }
 
-    public static void initializeLayers() {
+    /**
+     * Инициализирует слои атмосферы с их базовыми значениями.
+     */
+    private static void initializeLayers() {
         // Определение слоев атмосферы
         atmosphereLayers.add(new Layer(0, 11000, 288.15, -0.0065));
-        atmosphereLayers.add(new Layer(11000, 20000, 0, 0));
-        atmosphereLayers.add(new Layer(20000, 32000, 0, 0.001));
-        atmosphereLayers.add(new Layer(32000, 47000, 0, 0.0028));
-        atmosphereLayers.add(new Layer(47000, 51000, 0, 0));
-        atmosphereLayers.add(new Layer(51000, 71000, 0, -0.0028));
-        atmosphereLayers.add(new Layer(71000, 84852, 0, -0.002));
+        atmosphereLayers.add(new Layer(11000, 20000, 216.65, 0));
+        atmosphereLayers.add(new Layer(20000, 32000, 216.65, 0.001));
+        atmosphereLayers.add(new Layer(32000, 47000, 228.65, 0.0028));
+        atmosphereLayers.add(new Layer(47000, 51000, 270.65, 0));
+        atmosphereLayers.add(new Layer(51000, 71000, 270.65, -0.0028));
+        atmosphereLayers.add(new Layer(71000, 84852, 214.65, -0.002));
 
         // Начальные условия на уровне моря
-        Layer firstLayer = atmosphereLayers.getFirst();
+        Layer firstLayer = atmosphereLayers.get(0);
         firstLayer.pBase = 101325; // Па
-        firstLayer.rhoBase = firstLayer.pBase / (GAS_CONSTANT * firstLayer.tBase);
 
         // Расчет базовых значений для каждого слоя
         for (int i = 1; i < atmosphereLayers.size(); i++) {
@@ -58,7 +67,7 @@ public class Atmosphere {
             double p_b = prevLayer.pBase;
             double h_diff = h_b - prevLayer.hBase;
 
-            double T, p, rho;
+            double T, p;
 
             if (L == 0) {
                 T = T_b;
@@ -68,13 +77,17 @@ public class Atmosphere {
                 p = p_b * Math.pow(T / T_b, -STANDARD_GRAVITY / (L * GAS_CONSTANT));
             }
 
-            rho = p / (GAS_CONSTANT * T);
             layer.tBase = T;
             layer.pBase = p;
-            layer.rhoBase = rho;
         }
     }
 
+    /**
+     * Возвращает свойства атмосферы на заданной высоте.
+     *
+     * @param altitude высота в метрах
+     * @return свойства атмосферы
+     */
     public static AtmosphereProperties getAtmosphericProperties(double altitude) {
         if (altitude < 0) altitude = 0;
 
@@ -88,7 +101,7 @@ public class Atmosphere {
 
         if (layer == null) {
             // Высота выше верхнего слоя
-            layer = atmosphereLayers.getLast();
+            layer = atmosphereLayers.get(atmosphereLayers.size() - 1);
         }
 
         double h_b = layer.hBase;
@@ -113,6 +126,9 @@ public class Atmosphere {
         return new AtmosphereProperties(T, p, rho, soundSpeed);
     }
 
+    /**
+     * Класс {@code AtmosphereProperties} содержит свойства атмосферы на определенной высоте.
+     */
     public static class AtmosphereProperties {
         public double temperature;
         public double pressure;

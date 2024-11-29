@@ -1,67 +1,103 @@
-// src/main/java/app/view/AnimationPane.java
-
 package app.view;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Group;
+import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.paint.PhongMaterial;
-import javafx.scene.shape.Box;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+
+import java.util.Objects;
 
 /**
- * Класс AnimationPane отвечает за создание и управление анимацией падающего объекта
+ * Класс {@code AnimationPane} отвечает за создание и управление анимацией падающего объекта
  * и отображением аннотаций, связанных с объектом.
  */
 public class AnimationPane {
 
-    private StackPane pane;
-    private Box fallingObject;
-    private AnnotationBox annotationBox;
+    private final StackPane pane;
+    private final Circle fallingObject;
+    private final AnnotationBox annotationBox;
+
+    // Константы для преобразования высоты в позицию на экране
+    private static final double IMAGE_HEIGHT = 800; // Высота изображения в пикселях
+    private static final double IMAGE_WIDTH = 300;  // Ширина изображения в пикселях
+    private static final double MAX_ALTITUDE = 39000; // Максимальная высота в метрах
+
+    private final Label maxSpeedLabel;
+    private final Label freeFallTimeLabel;
 
     /**
-     * Конструктор класса AnimationPane.
+     * Конструктор класса {@code AnimationPane}.
      * Инициализирует все элементы анимационной панели.
      */
     public AnimationPane() {
-        createAnimationPane();
-    }
-
-    /**
-     * Создаёт анимационную панель, включая падающий объект, фон и аннотации.
-     */
-    private void createAnimationPane() {
-        Group animationGroup = new Group();
+        pane = new StackPane();
+        pane.getStyleClass().add("animation-pane");
+        pane.setPrefWidth(IMAGE_WIDTH);
+        pane.setPrefHeight(IMAGE_HEIGHT);
+        pane.setPadding(new Insets(10));
 
         // Загрузка и добавление фонового изображения
-        ImageViewWrapper backgroundImageView = new ImageViewWrapper("/assets/gradient.png", 300, 800);
-        animationGroup.getChildren().add(backgroundImageView.getImageView());
+        Image backgroundImage = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/assets/gradient.png")));
+        ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setFitWidth(IMAGE_WIDTH);
+        backgroundImageView.setFitHeight(IMAGE_HEIGHT);
+
+        pane.getChildren().add(backgroundImageView);
 
         // Создание падающего объекта
-        fallingObject = new Box(20, 20, 20);
-        fallingObject.setMaterial(new PhongMaterial(Color.RED));
-        fallingObject.setTranslateX(150);
-        fallingObject.setTranslateY(100); // Начальная позиция
-        animationGroup.getChildren().add(fallingObject);
+        fallingObject = new Circle(10);
+        fallingObject.setStyle("-fx-fill: red;");
+        fallingObject.getStyleClass().add("falling-object");
+        fallingObject.setCenterX(IMAGE_WIDTH / 2);
+        fallingObject.setCenterY(mapAltitudeToYPosition(MAX_ALTITUDE));
 
         // Создание аннотаций
         annotationBox = new AnnotationBox(fallingObject);
-        animationGroup.getChildren().add(annotationBox.getPane());
 
-        // Создание StackPane для размещения анимационной группы
-        pane = new StackPane(animationGroup);
-        pane.getStyleClass().add("animation-pane");
-        pane.setPrefWidth(300);
-        pane.setPadding(new Insets(10));
+        Pane animationLayer = new Pane();
+        animationLayer.setPrefSize(IMAGE_WIDTH, IMAGE_HEIGHT);
+        animationLayer.getChildren().addAll(fallingObject, annotationBox.getPane());
+
+        pane.getChildren().add(animationLayer);
+
+        // Создание меток для максимальной скорости и времени свободного падения
+        VBox infoBox = new VBox(5);
+        infoBox.setAlignment(Pos.TOP_CENTER);
+        infoBox.setPadding(new Insets(10));
+
+        maxSpeedLabel = new Label("Максимальная скорость: 0 м/с");
+        maxSpeedLabel.getStyleClass().add("info-label");
+        freeFallTimeLabel = new Label("Время свободного падения: 0 с");
+        freeFallTimeLabel.getStyleClass().add("info-label");
+
+        infoBox.getChildren().addAll(maxSpeedLabel, freeFallTimeLabel);
+
+        pane.getChildren().add(infoBox);
+        StackPane.setAlignment(infoBox, Pos.TOP_CENTER);
+    }
+
+    /**
+     * Преобразует высоту (метры) в позицию Y на экране (пиксели).
+     *
+     * @param altitude высота в метрах
+     * @return позиция Y в пикселях
+     */
+    private double mapAltitudeToYPosition(double altitude) {
+        double normalizedAltitude = 1 - (altitude / MAX_ALTITUDE);
+        normalizedAltitude = Math.max(0, Math.min(1, normalizedAltitude));
+        return normalizedAltitude * IMAGE_HEIGHT;
     }
 
     /**
      * Возвращает панель с анимацией.
      *
-     * @return StackPane с анимационной группой
+     * @return StackPane с анимационными элементами
      */
     public StackPane getPane() {
         return pane;
@@ -77,11 +113,10 @@ public class AnimationPane {
      * @param machNumber   текущее число Маха
      */
     public void updateSimulationMarker(double time, double altitude, double velocity, double acceleration, double machNumber) {
-        // Обновление позиции падающего объекта
-        double translateY = 500 - altitude / 100;
-        fallingObject.setTranslateY(translateY);
+        double newY = mapAltitudeToYPosition(altitude);
+        newY = Math.max(0, Math.min(IMAGE_HEIGHT, newY));
+        fallingObject.setCenterY(newY);
 
-        // Обновление аннотации
         annotationBox.updateAnnotations(time, altitude, velocity, acceleration, machNumber);
     }
 
@@ -89,68 +124,65 @@ public class AnimationPane {
      * Сбрасывает позицию падающего объекта и аннотацию до начальных значений.
      */
     public void resetSimulation() {
-        fallingObject.setTranslateY(100);
+        fallingObject.setCenterY(mapAltitudeToYPosition(MAX_ALTITUDE));
+        fallingObject.setRadius(10);
         annotationBox.resetAnnotations();
+        maxSpeedLabel.setText("Максимальная скорость: 0 м/с");
+        freeFallTimeLabel.setText("Время свободного падения: 0 с");
+    }
+
+    /**
+     * Обновляет отображение максимальной скорости и времени свободного падения.
+     *
+     * @param maxSpeed     максимальная скорость
+     * @param freeFallTime время свободного падения
+     */
+    public void updateFinalResults(double maxSpeed, double freeFallTime) {
+        maxSpeedLabel.setText(String.format("Максимальная скорость: %.1f м/с", maxSpeed));
+        freeFallTimeLabel.setText(String.format("Время свободного падения: %.1f с", freeFallTime));
     }
 
     /**
      * Внутренний класс для управления аннотациями.
      */
     private static class AnnotationBox {
-        private VBox pane;
-        private Text timeText;
-        private Text altitudeText;
-        private Text velocityText;
-        private Text accelerationText;
-        private Text machNumberText;
+        private final VBox pane;
+        private final Text timeText;
+        private final Text altitudeText;
+        private final Text velocityText;
+        private final Text accelerationText;
+        private final Text machNumberText;
 
         /**
-         * Конструктор класса AnnotationBox.
+         * Конструктор класса {@code AnnotationBox}.
          *
          * @param fallingObject объект, к которому привязана аннотация
          */
-        public AnnotationBox(Box fallingObject) {
-            createAnnotation(fallingObject);
-        }
-
-        /**
-         * Создаёт аннотацию, привязанную к падающему объекту.
-         *
-         * @param fallingObject объект, к которому привязана аннотация
-         */
-        private void createAnnotation(Box fallingObject) {
+        public AnnotationBox(Circle fallingObject) {
             pane = new VBox(5);
-            pane.setStyle("-fx-background-color: rgba(255, 255, 255, 0.8); -fx-padding: 5;");
+            pane.getStyleClass().add("annotation-box");
             pane.setAlignment(Pos.CENTER_LEFT);
 
-            // Создание текстовых меток
             timeText = new Text("Время: 0 с");
             altitudeText = new Text("Высота: 0 м");
             velocityText = new Text("Скорость: 0 м/с");
             accelerationText = new Text("Ускорение: 0 м/с²");
             machNumberText = new Text("Число Маха: 0");
 
-            // Добавление меток в контейнер аннотаций
             pane.getChildren().addAll(timeText, altitudeText, velocityText, accelerationText, machNumberText);
 
             // Привязка позиции аннотации к падающему объекту с смещением
-            pane.layoutXProperty().bind(fallingObject.translateXProperty().subtract(60)); // Смещение по X
-            pane.layoutYProperty().bind(fallingObject.translateYProperty().add(20)); // Смещение по Y
+            pane.layoutXProperty().bind(fallingObject.centerXProperty().add(20));
+            pane.layoutYProperty().bind(fallingObject.centerYProperty().subtract(30));
         }
 
         /**
          * Обновляет текстовые метки аннотации с новыми значениями.
-         *
-         * @param time         текущее время
-         * @param altitude     текущая высота
-         * @param velocity     текущая скорость
-         * @param acceleration текущее ускорение
-         * @param machNumber   текущее число Маха
          */
         public void updateAnnotations(double time, double altitude, double velocity, double acceleration, double machNumber) {
             timeText.setText(String.format("Время: %.1f с", time));
             altitudeText.setText(String.format("Высота: %.1f м", altitude));
-            velocityText.setText(String.format("Скорость: %.1f м/с", velocity));
+            velocityText.setText(String.format("Скорость: %.1f м/с", velocity * (-1)));
             accelerationText.setText(String.format("Ускорение: %.1f м/с²", acceleration));
             machNumberText.setText(String.format("Число Маха: %.2f", machNumber));
         }

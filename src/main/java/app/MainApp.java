@@ -1,35 +1,32 @@
 package app;
 
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.layout.BorderPane;
-import javafx.stage.Stage;
 import app.controller.SimulationController;
 import app.view.SimulationView;
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
 
-import java.util.Objects;
-
+/**
+ * Главный класс приложения, отвечающий за запуск и отображение основного окна.
+ */
 public class MainApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
         // Создание корневого узла и сцены
         SimulationView simulationView = new SimulationView();
-        SimulationController simulationController = new SimulationController(simulationView);
+        new SimulationController(simulationView);
 
         // Получение корневого узла из SimulationView
-        BorderPane root = simulationView.getView();
-
-        // Создание сцены
-        Scene scene = new Scene(root, 1200, 800);
+        Scene scene = new Scene(simulationView.getView());
 
         // Подключение CSS-стиля
-        String cssPath = Objects.requireNonNull(getClass().getResource("/styles.css")).toExternalForm();
-        scene.getStylesheets().add(cssPath);
+        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
 
-        // Установка сцены и отображение окна
+        // Установка сцены и отображение окна в полноэкранном режиме
         primaryStage.setScene(scene);
         primaryStage.setTitle("Симуляция прыжка с парашютом");
+        primaryStage.setFullScreen(true); // Запуск в полноэкранном режиме
         primaryStage.show();
     }
 
