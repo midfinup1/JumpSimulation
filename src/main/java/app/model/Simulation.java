@@ -6,61 +6,82 @@ import org.apache.commons.math3.ode.nonstiff.DormandPrince853Integrator;
 import org.apache.commons.math3.ode.sampling.StepHandler;
 import org.apache.commons.math3.ode.sampling.StepInterpolator;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
-/**
- * Класс {@code Simulation} отвечает за выполнение симуляции падения объекта с парашютом.
- */
 public class Simulation {
 
+    private static final Logger logger = Logger.getLogger(Simulation.class.getName());
+
+    static {
+        try {
+            FileHandler fileHandler = new FileHandler("simulation_data.log", false);
+            fileHandler.setFormatter(new SimpleFormatter() {
+                @Override
+                public synchronized String format(java.util.logging.LogRecord record) {
+                    return record.getMessage() + "\n";
+                }
+            });
+            logger.addHandler(fileHandler);
+            logger.setLevel(Level.FINE);
+        } catch (IOException e) {
+            System.err.println("Не удалось настроить логгер: " + e.getMessage());
+        }
+    }
+
     /**
-         * Класс {@code EquationsOfMotion} описывает систему дифференциальных уравнений для симуляции.
-         */
-        private record EquationsOfMotion(double mass, double area, double areaParachute, double parachuteAltitude,
-                                         double transitionTime) implements FirstOrderDifferentialEquations {
+     * Внутренний класс для уравнений движения.
+     * y[0] = h (высота)
+     * y[1] = v (скорость)
+     * y[2] = x (степень раскрытия парашюта от 0 до 1)
+     */
+    private record EquationsOfMotion(double mass, double area, double areaParachute, double parachuteAltitude,
+                                     double transitionTime) implements FirstOrderDifferentialEquations {
 
         @Override
-            public int getDimension() {
-                return 3; // [altitude, velocity, deploymentProgress]
-            }
-
-            @Override
-            public void computeDerivatives(double t, double[] y, double[] yDot) {
-                double altitude = y[0];
-                double velocity = y[1];
-                double deploymentProgress = y[2];
-
-                double gravity = Physics.calculateGravity(altitude);
-                Atmosphere.AtmosphereProperties atmosphere = Atmosphere.getAtmosphericProperties(altitude);
-
-                double density = atmosphere.density;
-                double soundSpeed = atmosphere.soundSpeed;
-                double machNumber = soundSpeed > 0 ? Math.abs(velocity) / soundSpeed : 0;
-                double dragCoefficient = Physics.calculateDragCoefficient(machNumber);
-
-                // Проверка условия раскрытия парашюта
-                if (altitude <= parachuteAltitude && deploymentProgress < 1.0) {
-                    yDot[2] = 1.0 / transitionTime; // Скорость увеличения прогресса раскрытия
-                } else {
-                    yDot[2] = 0.0;
-                }
-
-                // Расчет эффективной площади
-                double effectiveArea = area + (areaParachute - area) * deploymentProgress;
-
-                // Расчет силы сопротивления
-                double dragForce = 0.5 * dragCoefficient * density * effectiveArea * velocity * Math.abs(velocity);
-
-                // Уравнения движения
-                yDot[0] = velocity;
-                yDot[1] = -gravity - (dragForce / mass);
-            }
+        public int getDimension() {
+            return 3;
         }
 
-    /**
-     * Класс {@code SimulationResult} хранит результаты симуляции.
-     */
+        @Override
+        public void computeDerivatives(double t, double[] y, double[] yDot) {
+            double altitude = y[0];
+            double velocity = y[1];
+            double x = y[2]; // Степень раскрытия парашюта
+
+            double gravity = Physics.calculateGravity(altitude);
+            Atmosphere.AtmosphereProperties atmosphere = Atmosphere.getAtmosphericProperties(altitude);
+            double density = atmosphere.density;
+            double soundSpeed = atmosphere.soundSpeed;
+
+            double machNumber = soundSpeed > 0 ? Math.abs(velocity) / soundSpeed : 0;
+            double dragCoefficient = Physics.calculateDragCoefficient(machNumber);
+
+            // Уравнение для раскрытия парашюта:
+            // Если высота ниже заданной, парашют начинает раскрываться:
+            // dx/dt = (1 - x)/transitionTime
+            // Если выше - парашют не раскрывается (dx/dt=0)
+            if (altitude <= parachuteAltitude) {
+                yDot[2] = (1.0 - x) / transitionTime;
+            } else {
+                yDot[2] = 0.0;
+            }
+
+            double effectiveArea = area + (areaParachute - area) * x;
+            double dragForce = 0.5 * dragCoefficient * density * effectiveArea * velocity * velocity;
+            double dragAcceleration = -(dragForce / mass) * Math.signum(velocity);
+
+            yDot[0] = velocity;
+            yDot[1] = -gravity + dragAcceleration;
+        }
+    }
+
     public static class SimulationResult {
         public final List<Double> time = new ArrayList<>();
         public final List<Double> altitude = new ArrayList<>();
@@ -70,24 +91,19 @@ public class Simulation {
         public final List<Double> dragCoefficient = new ArrayList<>();
         public final List<Double> deploymentProgress = new ArrayList<>();
 
-        public double timeStep; // Средний шаг времени
+        public double timeStep;
     }
 
-    /**
-     * Выполняет симуляцию прыжка с парашютом.
-     *
-     * @param mass              масса объекта (кг)
-     * @param initialHeight     начальная высота (м)
-     * @param area              площадь до раскрытия парашюта (м²)
-     * @param areaParachute     площадь после раскрытия парашюта (м²)
-     * @param parachuteAltitude высота раскрытия парашюта (м)
-     * @param transitionTime    время раскрытия парашюта (с)
-     * @return результаты симуляции
-     */
-    public static SimulationResult simulateJump(double mass, double initialHeight, double area, double areaParachute, double parachuteAltitude, double transitionTime) {
+    public static SimulationResult simulateJump(double mass, double initialHeight, double area, double areaParachute,
+                                                double parachuteAltitude, double transitionTime) {
+
+        double initialDensity = Atmosphere.getAtmosphericProperties(initialHeight).density;
+        double initialCd = Physics.calculateDragCoefficient(0);
+        double terminalVelocity = Math.sqrt((2 * mass * Physics.STANDARD_GRAVITY) / (initialCd * initialDensity * area));
+
         EquationsOfMotion equations = new EquationsOfMotion(mass, area, areaParachute, parachuteAltitude, transitionTime);
 
-        double[] y = new double[]{initialHeight, 0, 0}; // [altitude, velocity, deploymentProgress]
+        double[] y = new double[]{initialHeight, 0, 0};
 
         double t0 = 0.0;
         double tMax = 1000.0;
@@ -100,8 +116,6 @@ public class Simulation {
         DormandPrince853Integrator integrator = new DormandPrince853Integrator(minStep, maxStep, absTolerance, relTolerance);
 
         SimulationResult result = new SimulationResult();
-
-        // Желаемый шаг вывода данных
         final double outputStep = 0.1;
 
         integrator.addStepHandler(new StepHandler() {
@@ -118,7 +132,6 @@ public class Simulation {
                 double tStart = interpolator.getPreviousTime();
                 double tEnd = interpolator.getCurrentTime();
                 boolean forward = tEnd > tStart;
-
                 double step = forward ? outputStep : -outputStep;
                 double nextOutputTime = lastOutputTime + step;
 
@@ -138,61 +151,66 @@ public class Simulation {
             }
 
             private void recordData(double t, double[] y) {
-                result.time.add(t);
-                result.altitude.add(Math.abs(y[0]));
-                result.velocity.add(y[1]);
-                result.deploymentProgress.add(y[2]);
+                double alt = Math.max(y[0], 0);
+                double vel = y[1];
+                double x = y[2];
 
-                Atmosphere.AtmosphereProperties atmosphere = Atmosphere.getAtmosphericProperties(y[0]);
+                Atmosphere.AtmosphereProperties atmosphere = Atmosphere.getAtmosphericProperties(alt);
+                double temperature = atmosphere.temperature;
+                double pressure = atmosphere.pressure;
+                double density = atmosphere.density;
                 double soundSpeed = atmosphere.soundSpeed;
-                double machNumber = soundSpeed > 0 ? Math.abs(y[1]) / soundSpeed : 0;
+
+                double machNumber = soundSpeed > 0 ? Math.abs(vel) / soundSpeed : 0;
                 double dragCoefficient = Physics.calculateDragCoefficient(machNumber);
 
-                // Расчет ускорения
-                double gravity = Physics.calculateGravity(y[0]);
-                double effectiveArea = area + (areaParachute - area) * y[2];
-                double density = atmosphere.density;
-                double dragForce = 0.5 * dragCoefficient * density * effectiveArea * y[1] * Math.abs(y[1]);
-                double acceleration = -gravity - (dragForce / mass);
+                double gravity = Physics.calculateGravity(alt);
+                double effectiveArea = area + (areaParachute - area) * x;
+                double dragForce = 0.5 * dragCoefficient * density * effectiveArea * vel * vel;
+                double dragAcc = -(dragForce / mass) * Math.signum(vel);
+                double acc = -gravity + dragAcc;
 
-                result.acceleration.add(acceleration);
+                result.time.add(t);
+                result.altitude.add(alt);
+                result.velocity.add(vel);
+                result.acceleration.add(acc);
                 result.machNumber.add(machNumber);
                 result.dragCoefficient.add(dragCoefficient);
+                result.deploymentProgress.add(x);
+
+                logger.info(String.format(Locale.US,
+                        "%.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f",
+                        t, alt, vel, acc, dragCoefficient, machNumber,
+                        temperature, pressure, density, gravity, soundSpeed));
             }
         });
 
-        // Обработчик события достижения земли
         integrator.addEventHandler(new EventHandler() {
             @Override
-            public void init(double t0, double[] y0, double t) {
-                // Инициализация при начале интегрирования
-            }
+            public void init(double t0, double[] y0, double t) {}
 
             @Override
             public double g(double t, double[] y) {
-                return y[0]; // Высота
+                return y[0];
             }
 
             @Override
             public Action eventOccurred(double t, double[] y, boolean increasing) {
-                return Action.STOP; // Остановить интегрирование при достижении земли
+                return Action.STOP;
             }
 
             @Override
-            public void resetState(double t, double[] y) {
-                // Не требуется изменение состояния
-            }
+            public void resetState(double t, double[] y) {}
         }, 1.0e-3, 1.0e-8, 1000);
 
         try {
             integrator.integrate(equations, t0, y, tMax, y);
         } catch (RuntimeException e) {
-            System.err.println("Ошибка во время симуляции: " + e.getMessage());
+            logger.log(Level.SEVERE, "Симуляция не удалась", e);
         }
 
-        // Вычисляем средний шаг времени
         if (result.time.size() > 1) {
-            double totalTime = result.time.getLast() - result.time.getFirst();
+            double totalTime = result.time.get(result.time.size() - 1) - result.time.get(0);
             result.timeStep = totalTime / (result.time.size() - 1);
         } else {
             result.timeStep = outputStep;

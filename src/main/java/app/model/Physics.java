@@ -1,17 +1,30 @@
 package app.model;
 
 /**
- * Класс {@code Physics} содержит физические расчеты, необходимые для симуляции.
+ * Класс {@code Physics} содержит физические расчёты, необходимые для симуляции:
+ * - Вычисление ускорения свободного падения на высоте
+ * - Вычисление коэффициента сопротивления в зависимости от числа Маха с интерполяцией
  */
 public class Physics {
 
     // Константы
     public static final double EARTH_RADIUS = 6_371_000; // м
     public static final double STANDARD_GRAVITY = 9.80665; // м/с²
-    private static final double BASE_DRAG_COEFFICIENT = 0.5;
+
+    // Табличные точки для Cd(M)
+    // Формат: {M, Cd}
+    private static final double[][] CD_TABLE = {
+            {0.0, 1.15},
+            {0.8, 1.15},
+            {1.0, 1.08},
+            {1.2, 1.10},
+            {5.0, 1.00}
+    };
 
     /**
      * Вычисляет ускорение свободного падения на заданной высоте.
+     *
+     * g(h) = g0 * (R/(R+h))^2
      *
      * @param altitude высота над уровнем моря в метрах
      * @return ускорение свободного падения в м/с²
@@ -21,22 +34,31 @@ public class Physics {
     }
 
     /**
-     * Вычисляет коэффициент сопротивления в зависимости от числа Маха.
+     * Вычисляет коэффициент сопротивления в зависимости от числа Маха, используя линейную интерполяцию
+     * между заданными точками.
      *
      * @param machNumber число Маха
-     * @return коэффициент сопротивления
+     * @return коэффициент сопротивления Cd
      */
     public static double calculateDragCoefficient(double machNumber) {
-        double dragCoefficient;
-        if (machNumber < 0.8) {
-            dragCoefficient = BASE_DRAG_COEFFICIENT;
-        } else if (machNumber < 1.0) {
-            dragCoefficient = BASE_DRAG_COEFFICIENT + 0.5 * (machNumber - 0.8) / 0.2;
-        } else if (machNumber < 1.2) {
-            dragCoefficient = 1.0;
-        } else {
-            dragCoefficient = 0.8;
+        if (machNumber <= CD_TABLE[0][0]) {
+            return CD_TABLE[0][1];
         }
-        return dragCoefficient;
+
+        for (int i = 0; i < CD_TABLE.length - 1; i++) {
+            double M1 = CD_TABLE[i][0];
+            double C1 = CD_TABLE[i][1];
+            double M2 = CD_TABLE[i + 1][0];
+            double C2 = CD_TABLE[i + 1][1];
+
+            if (machNumber >= M1 && machNumber <= M2) {
+                // Линейная интерполяция Cd между (M1, C1) и (M2, C2)
+                double fraction = (machNumber - M1) / (M2 - M1);
+                return C1 + fraction * (C2 - C1);
+            }
+        }
+
+        // Если M больше максимального значения таблицы, берём крайнее значение
+        return CD_TABLE[CD_TABLE.length - 1][1];
     }
 }

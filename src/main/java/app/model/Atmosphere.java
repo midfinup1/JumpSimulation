@@ -5,17 +5,24 @@ import java.util.List;
 
 /**
  * Класс {@code Atmosphere} предоставляет методы для вычисления свойств атмосферы
- * в зависимости от высоты над уровнем моря.
+ * в зависимости от высоты над уровнем моря. Используется модель, близкая к стандартной
+ * атмосфере. Также учитывается изменение температуры и давления по слоям.
+ *
+ * Плотность и скорость звука рассчитываются из идеального газового уравнения состояния.
  */
 public class Atmosphere {
 
-    // Константы
+    // Константы для воздуха
     public static final double GAS_CONSTANT = 287.05; // Дж/(кг·К)
     public static final double ADIABATIC_INDEX = 1.4;
     public static final double STANDARD_GRAVITY = 9.80665; // м/с²
 
+    // Константы формулы Сазерленда для динамической вязкости
+    private static final double SUTHERLAND_C1 = 1.458e-6; // кг/(м·с·К^0.5)
+    private static final double SUTHERLAND_S = 110.4; // К
+
     /**
-     * Внутренний класс {@code Layer} представляет слой атмосферы.
+     * Внутренний класс {@code Layer} представляет слой атмосферы со своими параметрами.
      */
     public static class Layer {
         double hBase;
@@ -40,10 +47,11 @@ public class Atmosphere {
     }
 
     /**
-     * Инициализирует слои атмосферы с их базовыми значениями.
+     * Инициализация стандартных слоёв атмосферы (приближённый вариант международной
+     * стандартной атмосферы ISA).
      */
     private static void initializeLayers() {
-        // Определение слоев атмосферы
+        // Определение слоев атмосферы (модель ISA)
         atmosphereLayers.add(new Layer(0, 11000, 288.15, -0.0065));
         atmosphereLayers.add(new Layer(11000, 20000, 216.65, 0));
         atmosphereLayers.add(new Layer(20000, 32000, 216.65, 0.001));
@@ -54,9 +62,9 @@ public class Atmosphere {
 
         // Начальные условия на уровне моря
         Layer firstLayer = atmosphereLayers.get(0);
-        firstLayer.pBase = 101325; // Па
+        firstLayer.pBase = 101325; // Па - давление на уровне моря
 
-        // Расчет базовых значений для каждого слоя
+        // Расчёт базовых значений давления на границах слоёв
         for (int i = 1; i < atmosphereLayers.size(); i++) {
             Layer prevLayer = atmosphereLayers.get(i - 1);
             Layer layer = atmosphereLayers.get(i);
@@ -68,10 +76,9 @@ public class Atmosphere {
             double h_diff = h_b - prevLayer.hBase;
 
             double T, p;
-
             if (L == 0) {
                 T = T_b;
-                p = p_b * Math.exp(-STANDARD_GRAVITY * h_diff / (GAS_CONSTANT * T));
+                p = p_b * Math.exp(-STANDARD_GRAVITY * h_diff / (GAS_CONSTANT * T_b));
             } else {
                 T = T_b + L * h_diff;
                 p = p_b * Math.pow(T / T_b, -STANDARD_GRAVITY / (L * GAS_CONSTANT));
@@ -85,11 +92,13 @@ public class Atmosphere {
     /**
      * Возвращает свойства атмосферы на заданной высоте.
      *
-     * @param altitude высота в метрах
-     * @return свойства атмосферы
+     * @param altitude высота в метрах (если ниже 0 - берём 0, выше максимума - берём верхний слой)
+     * @return свойства атмосферы (температура, давление, плотность, скорость звука, вязкость)
      */
     public static AtmosphereProperties getAtmosphericProperties(double altitude) {
         if (altitude < 0) altitude = 0;
+        double maxHeight = atmosphereLayers.get(atmosphereLayers.size() - 1).hTop;
+        if (altitude > maxHeight) altitude = maxHeight; // Ограничим высоту верхним слоем
 
         Layer layer = null;
         for (Layer l : atmosphereLayers) {
@@ -100,7 +109,7 @@ public class Atmosphere {
         }
 
         if (layer == null) {
-            // Высота выше верхнего слоя
+            // Если вдруг не нашли, берём последний слой (не должно случиться из-за ограничений)
             layer = atmosphereLayers.get(atmosphereLayers.size() - 1);
         }
 
@@ -110,7 +119,7 @@ public class Atmosphere {
         double L = layer.lapseRate;
         double delta_h = altitude - h_b;
 
-        double T, p, rho, soundSpeed;
+        double T, p, rho, soundSpeed, mu;
 
         if (L == 0) {
             T = T_b;
@@ -123,23 +132,28 @@ public class Atmosphere {
         rho = p / (GAS_CONSTANT * T);
         soundSpeed = Math.sqrt(ADIABATIC_INDEX * GAS_CONSTANT * T);
 
-        return new AtmosphereProperties(T, p, rho, soundSpeed);
+        // Динамическая вязкость по формуле Сазерленда
+        mu = (SUTHERLAND_C1 * Math.pow(T, 1.5)) / (T + SUTHERLAND_S);
+
+        return new AtmosphereProperties(T, p, rho, soundSpeed, mu);
     }
 
     /**
-     * Класс {@code AtmosphereProperties} содержит свойства атмосферы на определенной высоте.
+     * Класс для хранения свойств атмосферы.
      */
     public static class AtmosphereProperties {
         public double temperature;
         public double pressure;
         public double density;
         public double soundSpeed;
+        public double dynamicViscosity;
 
-        public AtmosphereProperties(double temperature, double pressure, double density, double soundSpeed) {
+        public AtmosphereProperties(double temperature, double pressure, double density, double soundSpeed, double dynamicViscosity) {
             this.temperature = temperature;
             this.pressure = pressure;
             this.density = density;
             this.soundSpeed = soundSpeed;
+            this.dynamicViscosity = dynamicViscosity;
         }
     }
 }

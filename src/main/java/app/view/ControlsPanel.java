@@ -36,7 +36,7 @@ public class ControlsPanel {
         parachuteAltitudeField = createStyledTextField("1500");
         areaField = createStyledTextField("0.5");
         areaParachuteField = createStyledTextField("25");
-        transitionTimeField = createStyledTextField("2.0");
+        transitionTimeField = createStyledTextField("4.0");
 
         startButton = createStyledButton("Старт");
         resetButton = createStyledButton("Сброс");
