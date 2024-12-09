@@ -33,22 +33,22 @@ public class ChartsPanel {
      * Создает графики и настраивает их.
      */
     public ChartsPanel() {
-        LineChart<Number, Number> altitudeChart = createChart("Высота (м)");
+        LineChart<Number, Number> altitudeChart = createChart("График высоты", "Высота (м)");
         altitudeSeriesFull = new XYChart.Series<>();
         altitudeCurrentPoint = new XYChart.Series<>();
         altitudeChart.getData().addAll(altitudeSeriesFull, altitudeCurrentPoint);
 
-        LineChart<Number, Number> velocityChart = createChart("Скорость (м/с)");
+        LineChart<Number, Number> velocityChart = createChart("График скорости", "Скорость (м/с)");
         velocitySeriesFull = new XYChart.Series<>();
         velocityCurrentPoint = new XYChart.Series<>();
         velocityChart.getData().addAll(velocitySeriesFull, velocityCurrentPoint);
 
-        LineChart<Number, Number> accelerationChart = createChart("Ускорение (м/с²)");
+        LineChart<Number, Number> accelerationChart = createChart("График ускорения", "Ускорение (м/с²)");
         accelerationSeriesFull = new XYChart.Series<>();
         accelerationCurrentPoint = new XYChart.Series<>();
         accelerationChart.getData().addAll(accelerationSeriesFull, accelerationCurrentPoint);
 
-        LineChart<Number, Number> machNumberChart = createChart("Число Маха");
+        LineChart<Number, Number> machNumberChart = createChart("График числа Маха", "Число Маха");
         machNumberSeriesFull = new XYChart.Series<>();
         machNumberCurrentPoint = new XYChart.Series<>();
         machNumberChart.getData().addAll(machNumberSeriesFull, machNumberCurrentPoint);
@@ -81,12 +81,13 @@ public class ChartsPanel {
     }
 
     /**
-     * Создает LineChart с заданным названием оси Y.
+     * Создает LineChart с заданным названием и меткой оси Y.
      *
+     * @param title      заголовок графика
      * @param yAxisLabel метка для оси Y
      * @return настроенный LineChart
      */
-    private LineChart<Number, Number> createChart(String yAxisLabel) {
+    private LineChart<Number, Number> createChart(String title, String yAxisLabel) {
         NumberAxis xAxis = new NumberAxis();
         xAxis.setLabel("Время (с)");
 
@@ -94,6 +95,7 @@ public class ChartsPanel {
         yAxis.setLabel(yAxisLabel);
 
         LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
+        chart.setTitle(title);
         chart.setCreateSymbols(false);
         chart.setAnimated(false);
         chart.setLegendVisible(false);

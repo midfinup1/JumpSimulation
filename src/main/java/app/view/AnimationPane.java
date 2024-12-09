@@ -24,7 +24,7 @@ public class AnimationPane {
     private final AnnotationBox annotationBox;
 
     // Константы для преобразования высоты в позицию на экране
-    private static final double IMAGE_HEIGHT = 800; // Высота изображения в пикселях
+    private static final double IMAGE_HEIGHT = 850; // Высота изображения в пикселях
     private static final double IMAGE_WIDTH = 300;  // Ширина изображения в пикселях
     private static final double MAX_ALTITUDE = 39000; // Максимальная высота в метрах
 
@@ -45,14 +45,16 @@ public class AnimationPane {
         // Загрузка и добавление фонового изображения
         Image backgroundImage = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/assets/gradient.png")));
         ImageView backgroundImageView = new ImageView(backgroundImage);
+        backgroundImageView.setPreserveRatio(false); // Растягиваем изображение
         backgroundImageView.setFitWidth(IMAGE_WIDTH);
         backgroundImageView.setFitHeight(IMAGE_HEIGHT);
+        backgroundImageView.setTranslateY(-25); // Смещение фона на 50 пикселей вверх
 
         pane.getChildren().add(backgroundImageView);
 
         // Создание падающего объекта
         fallingObject = new Circle(10);
-        fallingObject.setStyle("-fx-fill: red;");
+        fallingObject.setStyle("-fx-fill: rgba(102,0,255,0.75);");
         fallingObject.getStyleClass().add("falling-object");
         fallingObject.setCenterX(IMAGE_WIDTH / 2);
         fallingObject.setCenterY(mapAltitudeToYPosition(MAX_ALTITUDE));
@@ -68,8 +70,8 @@ public class AnimationPane {
 
         // Создание меток для максимальной скорости и времени свободного падения
         VBox infoBox = new VBox(5);
-        infoBox.setAlignment(Pos.TOP_CENTER);
-        infoBox.setPadding(new Insets(10));
+        infoBox.setAlignment(Pos.BOTTOM_LEFT);
+        infoBox.setPadding(new Insets(-15));
 
         maxSpeedLabel = new Label("Максимальная скорость: 0 м/с");
         maxSpeedLabel.getStyleClass().add("info-label");
@@ -91,7 +93,10 @@ public class AnimationPane {
     private double mapAltitudeToYPosition(double altitude) {
         double normalizedAltitude = 1 - (altitude / MAX_ALTITUDE);
         normalizedAltitude = Math.max(0, Math.min(1, normalizedAltitude));
-        return normalizedAltitude * IMAGE_HEIGHT;
+
+        // Увеличиваем нижний отступ для эффекта движения
+        double yPosition = normalizedAltitude * (IMAGE_HEIGHT - 20);
+        return Math.min(yPosition, IMAGE_HEIGHT);
     }
 
     /**
@@ -171,7 +176,7 @@ public class AnimationPane {
 
             pane.getChildren().addAll(timeText, altitudeText, velocityText, accelerationText, machNumberText);
 
-            // Привязка позиции аннотации к падающему объекту с смещением
+            pane.setStyle("-fx-background-color: rgba(255, 255, 255, 0.8); -fx-padding: 5px; -fx-border-radius: 5px;");
             pane.layoutXProperty().bind(fallingObject.centerXProperty().add(20));
             pane.layoutYProperty().bind(fallingObject.centerYProperty().subtract(30));
         }
@@ -182,7 +187,7 @@ public class AnimationPane {
         public void updateAnnotations(double time, double altitude, double velocity, double acceleration, double machNumber) {
             timeText.setText(String.format("Время: %.1f с", time));
             altitudeText.setText(String.format("Высота: %.1f м", altitude));
-            velocityText.setText(String.format("Скорость: %.1f м/с", velocity * (-1)));
+            velocityText.setText(String.format("Скорость: %.1f м/с", velocity));
             accelerationText.setText(String.format("Ускорение: %.1f м/с²", acceleration));
             machNumberText.setText(String.format("Число Маха: %.2f", machNumber));
         }

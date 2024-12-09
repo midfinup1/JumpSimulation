@@ -7,7 +7,6 @@ import java.util.List;
  * Класс {@code Atmosphere} предоставляет методы для вычисления свойств атмосферы
  * в зависимости от высоты над уровнем моря. Используется модель, близкая к стандартной
  * атмосфере. Также учитывается изменение температуры и давления по слоям.
- *
  * Плотность и скорость звука рассчитываются из идеального газового уравнения состояния.
  */
 public class Atmosphere {
@@ -61,7 +60,7 @@ public class Atmosphere {
         atmosphereLayers.add(new Layer(71000, 84852, 214.65, -0.002));
 
         // Начальные условия на уровне моря
-        Layer firstLayer = atmosphereLayers.get(0);
+        Layer firstLayer = atmosphereLayers.getFirst();
         firstLayer.pBase = 101325; // Па - давление на уровне моря
 
         // Расчёт базовых значений давления на границах слоёв
@@ -97,7 +96,7 @@ public class Atmosphere {
      */
     public static AtmosphereProperties getAtmosphericProperties(double altitude) {
         if (altitude < 0) altitude = 0;
-        double maxHeight = atmosphereLayers.get(atmosphereLayers.size() - 1).hTop;
+        double maxHeight = atmosphereLayers.getLast().hTop;
         if (altitude > maxHeight) altitude = maxHeight; // Ограничим высоту верхним слоем
 
         Layer layer = null;
@@ -110,7 +109,7 @@ public class Atmosphere {
 
         if (layer == null) {
             // Если вдруг не нашли, берём последний слой (не должно случиться из-за ограничений)
-            layer = atmosphereLayers.get(atmosphereLayers.size() - 1);
+            layer = atmosphereLayers.getLast();
         }
 
         double h_b = layer.hBase;

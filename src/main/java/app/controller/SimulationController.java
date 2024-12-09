@@ -183,7 +183,7 @@ public class SimulationController {
     }
 
     private void updateSimulation(double deltaTime) {
-        if (simulationResult != null) {
+        if (simulationResult != null && isRunning) {
             if (simulationResult.timeStep <= 0) {
                 simulationResult.timeStep = 0.1;
             }

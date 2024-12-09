@@ -9,10 +9,8 @@
 
 /* Стили для панелей */
 .form-container, .animation-pane {
-    -fx-background-color: #ffffff;
     -fx-border-radius: 12px;
     -fx-background-radius: 12px;
-    -fx-padding: 20;
     -fx-margin: 20;
 }
 
@@ -43,7 +41,6 @@
 /* Стили для ползунка */
 .slider {
     -fx-pref-width: 150px;
-    -fx-background-color: white;
     -fx-border-radius: 4px;
     -fx-background-radius: 4px;
 }

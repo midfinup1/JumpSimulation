@@ -182,6 +182,7 @@ public class Simulation {
                         "%.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f; %.4f",
                         t, alt, vel, acc, dragCoefficient, machNumber,
                         temperature, pressure, density, gravity, soundSpeed));
+//                logger.info(String.format(Locale.US, "Effective Area: %.2f, Deployment Progress: %.2f", effectiveArea, x));
             }
         });
 
@@ -210,7 +211,7 @@ public class Simulation {
         }
 
         if (result.time.size() > 1) {
-            double totalTime = result.time.get(result.time.size() - 1) - result.time.get(0);
+            double totalTime = result.time.getLast() - result.time.getFirst();
             result.timeStep = totalTime / (result.time.size() - 1);
         } else {
             result.timeStep = outputStep;
